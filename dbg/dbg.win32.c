@@ -586,11 +586,10 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
                 struct GG_PendingBreakpoint *br =
                     (struct GG_PendingBreakpoint*)e; 
                 if(br->create){
-                    (void)dbg;
-                    /* GG_DebuggerSetBreakpoint(dbg, br->address); */
+                    GG_DebuggerSetBreakpoint(dbg, br->address);
                 }
                 else{
-                    /* GG_DebuggerUnsetBreakpoint(dbg, br->address); */
+                    GG_DebuggerUnsetBreakpoint(dbg, br->address);
                 }
                 free(e);
             }while((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL);
@@ -599,7 +598,7 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
              * instead to avoid the double-post
              */
 #ifdef __TINYC__
-        ReleaseMutex(win->pending_br_mutex);
+            ReleaseMutex(win->pending_br_mutex);
 #endif
             SendMessage(win->win, gg_custom_message, 0, 0);
         }

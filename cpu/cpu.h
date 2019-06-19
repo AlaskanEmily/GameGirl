@@ -54,6 +54,12 @@ GG_ALL_REGISTERS( GG_DECLARE_REGISTER_ACCESS )
 #undef GG_DECLARE_REGISTER_ACCESS
 
 GG_CPU_FUNC(void) GG_CPU_Init(GG_CPU *cpu, void *mmu);
-GG_CPU_FUNC(void) GG_CPU_Execute(GG_CPU *cpu, void *mmu, void *gpu, void *win);
+GG_CPU_FUNC(void) GG_CPU_Execute(GG_CPU *cpu,
+    void *mmu,
+    void *gpu,
+    void *win,
+    void *dbg,
+    void *render_cb,
+    void *render_arg);
 
 #endif /* GG_CPU_CPU_H */

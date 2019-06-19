@@ -9,20 +9,21 @@
 #define GG_GPU_GPU_H
 #pragma once
 
-#ifndef GG_STDCALL
 #if (defined _WIN32) && ((defined __GNUC__) || (defined __TINYC__))
-#define GG_STDCALL(T) __attribute__((stdcall)) T
+#define GG_GPU_STDCALL(T) __attribute__((stdcall)) T
+#define GG_GPU_CALLBACK(T, NAME) __attribute__((stdcall))T(*NAME)
 #elif (defined _MSC_VER) || (defined __WATCOMC__)
-#define GG_STDCALL(T) T __stdcall
+#define GG_GPU_STDCALL(T) T __stdcall
+#define GG_GPU_CALLBACK(T, NAME) T(__stdcall*NAME)
 #else
-#define GG_STDCALL(T) T
-#endif
+#define GG_GPU_STDCALL(T) T
+#define GG_GPU_CALLBACK(T, NAME) T(*NAME)
 #endif
 
 #ifdef __cplusplus
-#define GG_GPU_FUNC(T) extern "C" GG_STDCALL(T)
+#define GG_GPU_FUNC(T) extern "C" GG_GPU_STDCALL(T)
 #else
-#define GG_GPU_FUNC GG_STDCALL
+#define GG_GPU_FUNC GG_GPU_STDCALL
 #endif
 
 #ifdef __cplusplus
@@ -53,8 +54,15 @@ GG_GPU_FUNC(void) GG_GPU_SetLine(GG_GPU *gpu, unsigned char line);
 GG_GPU_FUNC(unsigned) GG_GPU_GetModeClock(GG_GPU *gpu);
 GG_GPU_FUNC(void) GG_GPU_SetModeClock(GG_GPU *gpu, unsigned modeclock);
 
+typedef GG_GPU_CALLBACK(void, on_gpu_advance_callback)(void *arg);
+
 /* Returns the current mode */
-GG_GPU_FUNC(unsigned) GG_GPU_Advance(GG_GPU *gpu, void *win, void *mmu, unsigned clocks);
+GG_GPU_FUNC(unsigned) GG_GPU_Advance(GG_GPU *gpu,
+    void *win,
+    void *mmu,
+    unsigned clocks,
+    on_gpu_advance_callback cb,
+    void *cb_arg);
 
 /* The GPU components have a guaranteed ABI on x86.
  * This helps a lot on less optimizing compilers in cpu.c
@@ -74,7 +82,7 @@ GG_GPU_FUNC(unsigned) GG_GPU_Advance(GG_GPU *gpu, void *win, void *mmu, unsigned
 /* This is safe to use as a macro on any architecture, but it's only really
  * useful on x86. It tries to avoid diving into GG_GPU_Advance if possible.
  */
-#define GG_GPU_ADVANCE(GPU, WIN, MMU, CLOCK) \
+#define GG_GPU_ADVANCE(GPU, WIN, MMU, CLOCK, CB, ARG) \
     do{ \
         const unsigned GG_GPU_ADVANCE_mode = GG_GPU_GETMODE(GPU);\
         const unsigned GG_GPU_ADVANCE_modeclock = \
@@ -83,7 +91,7 @@ GG_GPU_FUNC(unsigned) GG_GPU_Advance(GG_GPU *gpu, void *win, void *mmu, unsigned
             (GG_GPU_ADVANCE_mode == 1 && GG_GPU_ADVANCE_modeclock >= 1824) || \
             (GG_GPU_ADVANCE_mode == 2 && GG_GPU_ADVANCE_modeclock >= 320) || \
             (GG_GPU_ADVANCE_mode == 3 && GG_GPU_ADVANCE_modeclock >= 688)) { \
-            GG_GPU_Advance(GPU, WIN, MMU, CLOCK); \
+            GG_GPU_Advance(GPU, WIN, MMU, CLOCK, CB, ARG); \
         } \
         else {\
             GG_GPU_SETMODECLOCK(GPU, GG_GPU_ADVANCE_modeclock);\

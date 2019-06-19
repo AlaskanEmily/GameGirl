@@ -146,7 +146,12 @@ static void gg_gpu_render_line(GG_GPU *gpu, GG_MMU *mmu){
     GG_Write8MMU(mmu, 0xFF44, ++(gpu->line));
 }
 
-unsigned GG_GPU_Advance(GG_GPU *gpu, void *win, void *mmu, unsigned clock){
+unsigned GG_GPU_Advance(GG_GPU *gpu,
+    void *win,
+    void *mmu,
+    unsigned clock,
+    on_gpu_advance_callback cb,
+    void *cb_arg){
 
     assert(mmu != NULL);
     assert(gpu != NULL);
@@ -164,9 +169,13 @@ unsigned GG_GPU_Advance(GG_GPU *gpu, void *win, void *mmu, unsigned clock){
                         /* Enter VBLANK. */
                         gpu->mode = GG_GPU_VBLANK_MODE;
                         gg_gpu_flipscreen(gpu, win);
+                        gpu->line = 0;
+                        if(cb)
+                            cb(cb_arg);
                     }
                     else{
                         gpu->mode = GG_GPU_OAM_MODE;
+                        gpu->line = old_line + 1;
                     }
                 }
                 break;

@@ -9,6 +9,7 @@
 
 #include "mmu.h"
 #include "gpu.h"
+#include "dbg.h"
 
 #define GG_SUPER_DEBUG
 #ifdef GG_SUPER_DEBUG
@@ -716,12 +717,22 @@ GG_CPU_FUNC(void) GG_CPU_Init(GG_CPU *cpu, void *mmu_v){
     }
 }
 
-GG_CPU_FUNC(void) GG_CPU_Execute(GG_CPU *cpu, void *mmu_v, void *gpu_v, void *win_v){
+void GG_CPU_Execute(GG_CPU *cpu,
+    void *mmu_v,
+    void *gpu_v,
+    void *win_v,
+    void *dbg_v,
+    void *render_cb_v,
+    void *render_arg){
+    
     register unsigned m = cpu->M;
     register unsigned short ip = cpu->IP;
     register GG_MMU *const mmu = mmu_v;
-    int count = 0;
+    struct GG_Debugger *const dbg = dbg_v;
+    on_gpu_advance_callback render_cb = (on_gpu_advance_callback)render_cb_v;
     DEBUG_ONLY(int debug_op);
+    
+    assert((render_cb == NULL) == (dbg == NULL));
     
     /* ip is now on the C stack */
 #undef GG_IP
@@ -730,39 +741,20 @@ GG_CPU_FUNC(void) GG_CPU_Execute(GG_CPU *cpu, void *mmu_v, void *gpu_v, void *wi
     do{
         const unsigned char opcode = GG_Read8MMU(mmu, ip++);
         const unsigned old_m = m;
-#if 0 && (defined GG_SUPER_DEBUG)
-        {
-            unsigned address = ip-1;
-            char buffer[80];
-            unsigned start_address = address;
-            const char *line = GG_DebugDisassemble(mmu, &address, buffer);
-            int p = printf("0x%0.4X ", start_address);
-            
-            p += printf("%s", line);
-            
-            while(p++ < 31){
-                printf(" ");
-            }
-            do{
-                printf(" 0x%0.2X", GG_Read8MMU(mmu, start_address++));
-            }while(start_address < address);
-            puts(" ");
-        }
-#endif
         switch(opcode){
 #include "cpu.inc"
         }
         
-        if(ip == 0xa1)
-            printf("B=0x%0.2X\n", GG_B( cpu ));
-            
-        
         /* Check for interrupts */
         assert(m > old_m);
-        GG_GPU_ADVANCE(gpu_v, win_v, mmu, m - old_m);
-        if(count++ == 0x1000){
-            count = 0;
-            printf("IP=0x%0.2X\n", ip);
+        GG_GPU_ADVANCE(gpu_v, win_v, mmu, m - old_m, render_cb, render_arg);
+        
+        /* Check for breakpoint */
+        if(dbg && GG_DebuggerIsBreakpoint(dbg, ip)){
+            GG_SetDebuggerState(dbg, GG_DBG_PAUSE);
+            do{
+                render_cb(render_arg);
+            }while(GG_GetDebuggerState(dbg) == GG_DBG_PAUSE);
         }
     }while(1);
 }

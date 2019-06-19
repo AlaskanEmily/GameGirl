@@ -20,6 +20,10 @@ struct GG_Debugger{
     GG_CPU *cpu;
     GG_MMU *mmu;
     int state;
+    
+    /* TODO: This should really be sorted. */
+    unsigned num_breaks, cap_breaks;
+    unsigned *breaks;
 };
 
 /*****************************************************************************/
@@ -34,6 +38,9 @@ struct GG_Debugger *GG_CreateDebugger(void *cpu, void *mmu){
     if(dbg){
         dbg->cpu = cpu;
         dbg->mmu = mmu;
+        dbg->breaks = NULL;
+        dbg->num_breaks = 0;
+        dbg->cap_breaks = 0;
     }
     
     return dbg;
@@ -62,6 +69,68 @@ void GG_SetDebuggerState(struct GG_Debugger *dbg, int state){
     assert(dbg->state == GG_DBG_PAUSE || dbg->state == GG_DBG_CONTINUE);
     
     dbg->state = state;
+}
+
+/*****************************************************************************/
+
+void GG_DebuggerSetBreakpoint(struct GG_Debugger *dbg, unsigned address){
+    const unsigned num_breaks = dbg->num_breaks;
+
+    unsigned new_cap = 0;
+    const unsigned old_cap = dbg->cap_breaks;
+    
+    assert(old_cap <= num_breaks);
+    
+    if(old_cap == 0){
+        new_cap = 16;
+    }
+    else if(old_cap == num_breaks){
+        new_cap = old_cap << 1;
+    }
+    if(new_cap != 0){
+        unsigned *new_breaks = realloc(dbg->breaks, sizeof(unsigned)*new_cap);
+        if(new_breaks == NULL){
+            /* DANGER WILL ROBINSON */
+            return;
+        }
+        else{
+            dbg->breaks = new_breaks;
+        }
+    }
+    
+    
+    dbg->breaks[dbg->num_breaks++] = address;
+}
+
+/*****************************************************************************/
+
+void GG_DebuggerUnsetBreakpoint(struct GG_Debugger *dbg, unsigned address){
+    unsigned i;
+    const unsigned num_breaks = dbg->num_breaks;
+    
+    assert(GG_DebuggerIsBreakpoint(dbg, address));
+    
+    for(i = 0; i < num_breaks; i++){
+        if(dbg->breaks[i] == address){
+            /* TODO: This will have to be changed when we start sorting */
+            dbg->breaks[i] = dbg->breaks[num_breaks-1];
+            dbg->num_breaks = num_breaks-1;
+            return;
+        }
+    }
+}
+
+/*****************************************************************************/
+/* Returns zero for no breakpoint, non-zero if there is a breakpoint */
+int GG_DebuggerIsBreakpoint(struct GG_Debugger *dbg, unsigned address){
+    unsigned i;
+    const unsigned num_breaks = dbg->num_breaks;
+    for(i = 0; i < num_breaks; i++){
+        if(dbg->breaks[i] == address){
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /*****************************************************************************/

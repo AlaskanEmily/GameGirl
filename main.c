@@ -11,6 +11,7 @@
 #include "gpu/gpu.h"
 #include "dbg/dbg.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <Windows.h>
@@ -30,18 +31,30 @@
 #include <alloca.h>
 #endif
 
-static char buffer[0x400];
+static char rom_name_buffer[0x400];
+
+struct debugger_callback_arg{
+    struct GG_Debugger *dbg;
+    struct GG_DebuggerUI *dbg_ui;
+    struct GG_DebuggerWindow *dbg_win;
+};
+
+static GG_GPU_FUNC(void) debugger_callback(void *arg_v){
+    struct debugger_callback_arg *const arg = arg_v;
+    assert(arg);
+}
 
 int main(int argc, char *argv[]){
     GG_MMU *const mmu = GG_CreateMMU();
     GG_CPU *const cpu = alloca(gg_cpu_struct_size);
     GG_GPU *const gpu = alloca(gg_gpu_struct_size);
+    on_gpu_advance_callback cb = NULL;
+    struct debugger_callback_arg debugger_data = {NULL, NULL, NULL};
     GG_Window *win;
     const char *rom_name = NULL;
     const void *rom;
     int rom_size;
     int i;
-    
     /* TODO: This should be changed */
     int start_debugger = 1;
     
@@ -88,8 +101,8 @@ int main(int argc, char *argv[]){
     }
     
     if(rom_name == NULL){
-        rom_name = buffer;
-        GG_BrowseForFile(win, ".gb", buffer, sizeof(buffer));
+        rom_name = rom_name_buffer;
+        GG_BrowseForFile(win, ".gb", rom_name_buffer, sizeof(rom_name_buffer));
     }
     
     /* Load the rom */
@@ -108,10 +121,14 @@ int main(int argc, char *argv[]){
     GG_GPU_Init(gpu);
     
     if(start_debugger){
-    
+        GG_InitDebuggerWindowSystem();
+        debugger_data.dbg = GG_CreateDebugger(cpu, mmu);
+        debugger_data.dbg_ui = GG_CreateDebuggerUI();
+        debugger_data.dbg_win = GG_CreateDebuggerWindow(debugger_data.dbg_ui);
+        cb = debugger_callback;
     }
     
-    GG_CPU_Execute(cpu, mmu, gpu, win);
+    GG_CPU_Execute(cpu, mmu, gpu, win, debugger_data.dbg, cb, &debugger_data);
     
     GG_DestroyWindow(win);
     GG_DestroyMMU(mmu);
