@@ -32,10 +32,10 @@ cpu$(OBJ): cpu/cpu.c cpu/cpu.h cpu/cpu_dummy.h cpu/cpu.inc mmu/mmu.h gpu/gpu.h
 	$(COMPILER) $(COMPILERFLAGS) -c cpu/cpu.c -o cpu$(OBJ)
 
 cpu_length$(OBJ): cpu/cpu_length.c cpu/cpu.inc
-	$(COMPILER) $(COMPILERFLAGS) -c dbg/cpu_length.c -o cpu_length$(OBJ)
+	$(COMPILER) $(COMPILERFLAGS) -c cpu/cpu_length.c -o cpu_length$(OBJ)
 
 cpu_timings$(OBJ): cpu/cpu_timings.c cpu/cpu.inc
-	$(COMPILER) $(COMPILERFLAGS) -c dbg/cpu_timings.c -o cpu_timings$(OBJ)
+	$(COMPILER) $(COMPILERFLAGS) -c cpu/cpu_timings.c -o cpu_timings$(OBJ)
 
 dbg_ui$(OBJ): dbg/dbg_ui.c dbg/dbg.h
 	$(COMPILER) $(COMPILERFLAGS) -c dbg/dbg_ui.c -o dbg_ui$(OBJ)
