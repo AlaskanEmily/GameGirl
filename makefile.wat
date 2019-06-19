@@ -8,8 +8,8 @@ WCCFLAGS=-ox -zw -bc -br -6r -we -wx -hd -ri -i=cpu -i=mmu -i=gpu -i=dbg -dWIN32
 WLINKFLAGS=op map SYS nt op quiet
 PROGRAM=gg.exe
 DISASM_PROGRAM=gg_disasm.exe
-OBJECTS=main.obj mmu.obj cpu.obj dbg_disasm.obj dbg_gg.obj dbg_ui.obj dbg.win32.obj gpu.obj blit.obj gfx.win32.obj
-DISASM_OBJECTS=mmu.obj dbg_disasm.obj disasm.obj
+OBJECTS=main.obj mmu.obj cpu.obj dbg_disasm.obj dbg_gg.obj dbg_ui.obj dbg.win32.obj gpu.obj blit.obj gfx.win32.obj cpu_timings.obj cpu_length.obj
+DISASM_OBJECTS=mmu.obj dbg_disasm.obj disasm.obj cpu_timings.obj cpu_length.obj
 DBG_TEST_OBJECTS=dbg_ui.obj dbg.win32.obj dbg_test.obj
 
 hybrid: main.obj cpu.obj gg.dll gg.def
@@ -18,6 +18,12 @@ hybrid: main.obj cpu.obj gg.dll gg.def
 
 cpu.obj: cpu\cpu.c cpu\cpu.h cpu\cpu_dummy.h cpu\cpu.inc mmu\mmu.h
 	wcc386 cpu\cpu.c $(WCCFLAGS)
+
+cpu_length.obj: cpu\cpu_length.c cpu\cpu.inc
+	wcc386 cpu\cpu_length.c $(WCCFLAGS)
+
+cpu_timings.obj: cpu\cpu_timings.c cpu\cpu.inc
+	wcc386 cpu\cpu_timings.c $(WCCFLAGS)
 
 dbg_ui.obj: dbg\dbg_ui.c dbg\dbg.h
 	wcc386 dbg\dbg_ui.c $(WCCFLAGS)

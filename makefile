@@ -7,9 +7,9 @@ PROGRAM=gg$(EXE)
 LIBRARY=gg$(SO)
 DISASM_PROGRAM=gg_disasm$(EXE)
 DBG_TEST_PROGRAM=gg_dbg_test$(EXE)
-LIBRARY_OBJECTS=mmu$(OBJ) dbg_disasm$(OBJ) dbg_gg$(OBJ) dbg_ui$(OBJ) dbg.$(BACKEND)$(OBJ) gpu$(OBJ) blit$(OBJ) gfx.$(BACKEND)$(OBJ)
+LIBRARY_OBJECTS=mmu$(OBJ) dbg_disasm$(OBJ) dbg_gg$(OBJ) dbg_ui$(OBJ) dbg.$(BACKEND)$(OBJ) gpu$(OBJ) blit$(OBJ) gfx.$(BACKEND)$(OBJ) cpu_length$(OBJ) cpu_timings$(OBJ)
 OBJECTS=main$(OBJ) cpu$(OBJ) $(LIBRARY_OBJECTS)
-DISASM_OBJECTS=mmu$(OBJ) dbg_disasm$(OBJ) disasm$(OBJ)
+DISASM_OBJECTS=mmu$(OBJ) dbg_disasm$(OBJ) disasm$(OBJ) cpu_length$(OBJ) cpu_timings$(OBJ)
 DBG_TEST_OBJECTS=dbg_ui$(OBJ) dbg.$(BACKEND)$(OBJ) dbg_test$(OBJ)
 
 all: $(PROGRAM) $(DISASM_PROGRAM) $(DBG_TEST_PROGRAM)
@@ -30,6 +30,12 @@ hybrid: $(LIBRARY)
 
 cpu$(OBJ): cpu/cpu.c cpu/cpu.h cpu/cpu_dummy.h cpu/cpu.inc mmu/mmu.h gpu/gpu.h
 	$(COMPILER) $(COMPILERFLAGS) -c cpu/cpu.c -o cpu$(OBJ)
+
+cpu_length$(OBJ): cpu/cpu_length.c cpu/cpu.inc
+	$(COMPILER) $(COMPILERFLAGS) -c dbg/cpu_length.c -o cpu_length$(OBJ)
+
+cpu_timings$(OBJ): cpu/cpu_timings.c cpu/cpu.inc
+	$(COMPILER) $(COMPILERFLAGS) -c dbg/cpu_timings.c -o cpu_timings$(OBJ)
 
 dbg_ui$(OBJ): dbg/dbg_ui.c dbg/dbg.h
 	$(COMPILER) $(COMPILERFLAGS) -c dbg/dbg_ui.c -o dbg_ui$(OBJ)
