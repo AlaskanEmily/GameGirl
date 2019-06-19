@@ -1,4 +1,6 @@
 @echo off
+rem Any copyright is dedicated to the Public Domain.
+rem http://creativecommons.org/publicdomain/zero/1.0/
 
 if "%1"=="clean" ( goto clean ) else ( goto build )
 

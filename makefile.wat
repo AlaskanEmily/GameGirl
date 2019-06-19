@@ -1,3 +1,5 @@
+# Any copyright is dedicated to the Public Domain.
+# http://creativecommons.org/publicdomain/zero/1.0/
 
 all: gg.exe gg_disasm.exe gg_dbg_test.exe
 
