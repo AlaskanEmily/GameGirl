@@ -420,8 +420,8 @@ const unsigned gg_cpu_struct_size = sizeof(struct GG_CPU_s);
 
 /* Push 16-bit register from the stack */
 #define GG_PUSH_REG16( REG16 ) \
-    GG_Write16MMU(mmu, GG_SP( cpu ), GG_ ## REG16( cpu )); \
-    GG_SP( cpu ) -= 2;
+    GG_SP( cpu ) -= 2; \
+    GG_Write16MMU(mmu, GG_SP( cpu ), GG_ ## REG16( cpu ));
 
 /* Jump to 16-bit register */
 #define GG_JMP_REG16( REG16 ) \
