@@ -112,10 +112,15 @@ void WINAPI InitCommonControls(void);
 
 /*****************************************************************************/
 
-#ifdef __TINYC__
+#if (defined __TINYC__) || (defined __CYGWIN__)
+#define GG_DBG_USE_MUTEX
+#endif
+
+#ifdef GG_DBG_USE_MUTEX
 struct GG_PendingBreakpoint;
 typedef struct GG_PendingBreakpoint *GG_PendingBreakpointList;
 typedef GG_PendingBreakpointList GG_PendingBreakpointListHead;
+static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br);
 #else
 #define GG_POP_PENDING_BR InterlockedPopEntrySList
 typedef SLIST_ENTRY GG_PendingBreakpointList;
@@ -128,10 +133,10 @@ struct GG_PendingBreakpoint {
     BOOL create;
 };
 
-#ifdef __TINYC__
+#ifdef GG_DBG_USE_MUTEX
 static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br){
     struct GG_PendingBreakpoint *const next = *br;
-    if(next == NULL){
+    if(next != NULL){
         br[0] = next->entry;
     }
     return next;
@@ -151,7 +156,7 @@ static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br){
  */
 
 struct GG_DebuggerWindow{
-#ifdef __TINYC__
+#ifdef GG_DBG_USE_MUTEX
     HANDLE pending_br_mutex;
 #endif
     GG_PendingBreakpointListHead pending_br;
@@ -512,7 +517,7 @@ struct GG_DebuggerWindow *GG_CreateDebuggerWindow(struct GG_DebuggerUI *dbg){
         malloc(sizeof(struct GG_DebuggerWindow));
     
     ZeroMemory(win, sizeof(struct GG_DebuggerWindow));
-#ifdef __TINYC__
+#ifdef GG_DBG_USE_MUTEX
     win->pending_br_mutex = CreateMutexA(NULL, FALSE, NULL);
     win->pending_br = NULL;
 #else
@@ -576,10 +581,10 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
     }
     else{
         /* Set any pending breakpoints */
-#ifdef __TINYC__
+#ifdef GG_DBG_USE_MUTEX
         /* Wait with just 1. We're OK with just waiting for another frame. */
         if(WaitForSingleObject(win->pending_br_mutex, 1) != WAIT_OBJECT_0)
-            return;
+            return 0;
 #endif
         if((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL){
             do{
@@ -597,7 +602,7 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
             /* TODO: this might not be important? We could return differently
              * instead to avoid the double-post
              */
-#ifdef __TINYC__
+#ifdef GG_DBG_USE_MUTEX
             ReleaseMutex(win->pending_br_mutex);
 #endif
             SendMessage(win->win, gg_custom_message, 0, 0);
