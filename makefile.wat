@@ -4,13 +4,16 @@
 all: gg.exe gg_disasm.exe gg_dbg_test.exe
 
 # TODO: Swap bc to be bg?
-WCCFLAGS=-ox -zw -bc -br -6r -we -wx -hd -ri -i=cpu -i=mmu -i=gpu -i=dbg -dWIN32=1 -q $(WCCEXTRAFLAGS)
+WCCFLAGS=-ox -zw -bc -br -6r -we -wx -hd -ri -i=cpu -i=mmu -i=gpu -i=dbg -dWIN32 -q
 WLINKFLAGS=op map SYS nt op quiet
 PROGRAM=gg.exe
 DISASM_PROGRAM=gg_disasm.exe
-OBJECTS=main.obj mmu.obj cpu.obj dbg_disasm.obj dbg_gg.obj dbg_ui.obj dbg.win32.obj gpu.obj blit.obj gfx.win32.obj cpu_timings.obj cpu_length.obj
-DISASM_OBJECTS=mmu.obj dbg_disasm.obj disasm.obj cpu_timings.obj cpu_length.obj
-DBG_TEST_OBJECTS=dbg_ui.obj dbg.win32.obj dbg_test.obj
+CPU_OBJECTS=cpu_timings.obj cpu_length.obj cpu.obj
+GPU_OBJECTS=gpu.obj blit.obj gfx.win32.obj 
+DBG_OBJECTS=dbg_ui.obj dbg.win32.obj dbg_disasm.obj dbg_gg.obj
+OBJECTS=main.obj mmu.obj $(CPU_OBJECTS) $(GPU_OBJECTS) $(DBG_OBJECTS)
+DISASM_OBJECTS=mmu.obj disasm.obj cpu_timings.obj cpu_length.obj dbg_disasm.obj
+DBG_TEST_OBJECTS=dbg_test.obj mmu.obj $(DBG_OBJECTS)
 
 hybrid: main.obj cpu.obj gg.dll gg.def
 	wlink $(WLINKFLAGS) FILE { main.obj cpu.obj } LIBRARY gg.lib NAME gg.exe
