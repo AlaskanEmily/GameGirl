@@ -58,6 +58,21 @@ GG_DEBUG_CALL(void) GG_SetDebuggerState(struct GG_Debugger *dbg, int);
 
 /*****************************************************************************/
 
+GG_DEBUG_CALL(void)
+GG_DebuggerSetBreakpoint(struct GG_Debugger *dbg, unsigned address);
+
+/*****************************************************************************/
+
+GG_DEBUG_CALL(void)
+GG_DebuggerUnsetBreakpoint(struct GG_Debugger *dbg, unsigned address);
+
+/*****************************************************************************/
+/* Returns zero for no breakpoint, non-zero if there is a breakpoint */
+GG_DEBUG_CALL(int)
+GG_DebuggerIsBreakpoint(struct GG_Debugger *dbg, unsigned address);
+
+/*****************************************************************************/
+
 GG_DEBUG_CALL(unsigned)
 GG_DebuggerAddressToLine(const struct GG_Debugger *dbg, unsigned);
 
@@ -249,7 +264,8 @@ GG_DEBUG_CALL(void) GG_UpdateDebuggerWindow(struct GG_DebuggerWindow *win);
 /* Process any pending events from the debugger window.
  * Returns non-zero if the window has been closed.
  */
-GG_DEBUG_CALL(int) GG_PollDebuggerWindow(struct GG_DebuggerWindow *win);
+GG_DEBUG_CALL(int) GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
+    struct GG_Debugger *dbg);
 
 /*****************************************************************************/
 /* This must be called after calling GG_PollDebuggerWindow, but before

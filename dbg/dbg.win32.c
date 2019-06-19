@@ -16,6 +16,7 @@
 #define _WIN32_WINNT 0x0600
 
 #include <Windows.h>
+#include <malloc.h>
 
 #define GG_TCC_LVM_SETEXTENDEDLISTVIEWSTYLE 0x1036
 #define GG_TCC_LVM_INSERTCOLUMNW 0x1061
@@ -111,6 +112,34 @@ void WINAPI InitCommonControls(void);
 
 /*****************************************************************************/
 
+#ifdef __TINYC__
+struct GG_PendingBreakpoint;
+typedef struct GG_PendingBreakpoint *GG_PendingBreakpointList;
+typedef GG_PendingBreakpointList GG_PendingBreakpointListHead;
+#else
+#define GG_POP_PENDING_BR InterlockedPopEntrySList
+typedef SLIST_ENTRY GG_PendingBreakpointList;
+typedef SLIST_HEADER GG_PendingBreakpointListHead;
+#endif
+
+struct GG_PendingBreakpoint {
+    GG_PendingBreakpointList entry;
+    unsigned address;
+    BOOL create;
+};
+
+#ifdef __TINYC__
+static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br){
+    struct GG_PendingBreakpoint *const next = *br;
+    if(next == NULL){
+        br[0] = next->entry;
+    }
+    return next;
+}
+#endif
+
+/*****************************************************************************/
+
 #define GG_DEBUGGER_MAX_LINES 1024L
 
 /*****************************************************************************/
@@ -122,6 +151,10 @@ void WINAPI InitCommonControls(void);
  */
 
 struct GG_DebuggerWindow{
+#ifdef __TINYC__
+    HANDLE pending_br_mutex;
+#endif
+    GG_PendingBreakpointListHead pending_br;
     HWND win;
     struct GG_DebuggerUI *dbg;
     HANDLE signal_event;
@@ -229,23 +262,8 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
     MSG msg;
     const HINSTANCE instance = GetModuleHandle(NULL);
     
-    /* Very fast arena for item text. Since our operations basically consist of
-     * invalidating ALL text and then creating new strings, we can just use an
-     * arena.
-     * Don't allocate this until after we have signalled OK to the main thread.
-     * They are waiting on us, it's best not to do unrelated allocations until
-     * we unblock them.
-     */
-    wchar_t *items_text_arena = NULL;
-    UINT items_text_arena_at = 0;
+    wchar_t items_text_buffer[0x400];
     HWND list_view, text_input;
-#define GG_ALLOC_ITEM_TEXT(SIZE_IN_WCHARS) \
-    items_text_arena+items_text_arena_at; \
-    items_text_arena[SIZE_IN_WCHARS] = 0;\
-    items_text_arena+=SIZE_IN_WCHARS+1;
-
-#define GG_CLEAR_ALL_ITEM_TEXT() items_text_arena_at = 0
-    
     /* TODO:
      * WS_EX_NOACTIVATE to make this always below the emulator?
      */
@@ -270,8 +288,6 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
 		OutputDebugString(TEXT("Could not signal event!"));
 		return 0;
 	}
-    
-    items_text_arena = malloc(GG_DEBUGGER_MAX_LINES * 64L);
     
     /* Create the UI elements */
     {
@@ -371,6 +387,7 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
 #endif
             };
             item.puColumns = gg_column_indices;
+            item.pszText = items_text_buffer;
             
             assert(win->needed_end >= win->needed_start);
             /* Remove all items. We could do an incremental update, but bleh.
@@ -378,8 +395,6 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
              * we are about to clear all the text data.
              */
             SendMessage(list_view, LVM_DELETEALLITEMS, 0, 0);
-            
-            GG_CLEAR_ALL_ITEM_TEXT();
             
             /* Add all the lines from the debugger UI */
             for(i = 0; i < num_lines; i++){
@@ -392,25 +407,20 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
                 {
                     /* Send the address, posting the initial item info. */
                     const unsigned address = GG_GetDebuggerUILineAddress(line);
-                    item.pszText = GG_ALLOC_ITEM_TEXT(6);
                     WPRINT_ADDRESS(item.pszText, address);
                     SendMessageW(list_view, LVM_INSERTITEMW, 0, (LPARAM)&item);
                 }
-                
-                /* Swap flags to account for subitem info. */
                 
                 /* TODO! IMAGE ON BREAK COLUMN */
                 
                 /* Remove the columns info. */
                 item.mask = LVIF_TEXT;
                 {
-                    /* Allocate space for this wide string for the disassembly */
-                    const char *const line_text = GG_GetDebuggerUILineText(line);
-                    const int line_len =
-                        MultiByteToWideChar(CP_UTF8, 0, line_text, -1, NULL, 0) + 1;
-                    
-                    item.pszText = GG_ALLOC_ITEM_TEXT(line_len);
-                    MultiByteToWideChar(CP_UTF8, 0, line_text, -1, item.pszText, line_len);
+                    const char *const line_text =
+                        GG_GetDebuggerUILineText(line);
+                    MultiByteToWideChar(CP_UTF8, 0,
+                        line_text, -1,
+                        item.pszText, 0x400);
                     item.iSubItem = 2;
                     SendMessageW(list_view, LVM_SETITEMW, 0, (LPARAM)&item);
                 }
@@ -499,7 +509,15 @@ void GG_InitDebuggerWindowSystem(void){
 struct GG_DebuggerWindow *GG_CreateDebuggerWindow(struct GG_DebuggerUI *dbg){
     
     struct GG_DebuggerWindow *const win =
-        calloc(1, sizeof(struct GG_DebuggerWindow));
+        malloc(sizeof(struct GG_DebuggerWindow));
+    
+    ZeroMemory(win, sizeof(struct GG_DebuggerWindow));
+#ifdef __TINYC__
+    win->pending_br_mutex = CreateMutexA(NULL, FALSE, NULL);
+    win->pending_br = NULL;
+#else
+    InitializeSListHead(&win->pending_br);
+#endif
     
     /* Create the signal */
     win->signal_event = CreateEvent(NULL, FALSE, TRUE, NULL);
@@ -539,13 +557,17 @@ void GG_DestroyDebuggerWindow(struct GG_DebuggerWindow *win){
  * This the only point where the window will read from the UI component.
  */
 void GG_UpdateDebuggerWindow(struct GG_DebuggerWindow *win){
-    PostMessage(win->win, gg_custom_message, 0, 0);
+    SendMessage(win->win, gg_custom_message, 0, 0);
 }
 
 /*****************************************************************************/
 /* Process any pending events from the debugger window.
  */
-int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win){
+int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
+    struct GG_Debugger *dbg){
+    
+    void *e;
+    
     /* Nothing to do since we are multithreaded. */
     DWORD result;
     if((!GetExitCodeThread(win->thread, &result)) || result != STILL_ACTIVE){
@@ -553,6 +575,34 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win){
         return 1;
     }
     else{
+        /* Set any pending breakpoints */
+#ifdef __TINYC__
+        /* Wait with just 1. We're OK with just waiting for another frame. */
+        if(WaitForSingleObject(win->pending_br_mutex, 1) != WAIT_OBJECT_0)
+            return;
+#endif
+        if((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL){
+            do{
+                struct GG_PendingBreakpoint *br =
+                    (struct GG_PendingBreakpoint*)e; 
+                if(br->create){
+                    (void)dbg;
+                    /* GG_DebuggerSetBreakpoint(dbg, br->address); */
+                }
+                else{
+                    /* GG_DebuggerUnsetBreakpoint(dbg, br->address); */
+                }
+                free(e);
+            }while((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL);
+            
+            /* TODO: this might not be important? We could return differently
+             * instead to avoid the double-post
+             */
+#ifdef __TINYC__
+        ReleaseMutex(win->pending_br_mutex);
+#endif
+            SendMessage(win->win, gg_custom_message, 0, 0);
+        }
         return 0;
     }
 }

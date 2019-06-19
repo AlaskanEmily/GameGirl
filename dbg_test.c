@@ -17,7 +17,7 @@ int main(int argc, char **argv){
     {
         struct GG_DebuggerUI *const dbg_ui = GG_CreateDebuggerUI();
         struct GG_DebuggerWindow *const dbg_win = GG_CreateDebuggerWindow(dbg_ui);
-        while(GG_PollDebuggerWindow(dbg_win) == 0){
+        while(GG_PollDebuggerWindow(dbg_win, NULL) == 0){
             unsigned start, end;
             if(GG_GetDebuggerWindowNeededLines(dbg_win, &start, &end)){
                 /* Fill with gibberish. */

@@ -89,7 +89,7 @@ static LRESULT CALLBACK gg_gfx_proc(HWND hwnd,
                 winDC = BeginPaint(hwnd, &ps);
                 memDC = CreateCompatibleDC(winDC);
                 
-                SetStretchBltMode(hwnd, HALFTONE);
+                /* SetStretchBltMode(hwnd, HALFTONE); */
                 
                 SelectObject(memDC, win->bitmap);
                 StretchBlt(winDC, 0, 0, 160 * win->scale, 144 * win->scale,
