@@ -112,32 +112,54 @@ void WINAPI InitCommonControls(void);
 
 /*****************************************************************************/
 
+#define GG_OPEN_ROM     1
+#define GG_SAVE_DISASM  2
+#define GG_SAVE_TILES   3
+#define GG_SET_BREAKPOINT 4
+#define GG_CLEAR_BREAKPOINT 5
+#define GG_CLEAR_ALL_BREAKPOINTS 6
+#define GG_SET_REGISTER 7
+
+/*****************************************************************************/
+
 #if (defined __TINYC__) || (defined __CYGWIN__)
 #define GG_DBG_USE_MUTEX
 #endif
 
 #ifdef GG_DBG_USE_MUTEX
-struct GG_PendingBreakpoint;
-typedef struct GG_PendingBreakpoint *GG_PendingBreakpointList;
-typedef GG_PendingBreakpointList GG_PendingBreakpointListHead;
-static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br);
+struct GG_PendingCommand;
+typedef struct GG_PendingCommand *GG_PendingCommandList;
+typedef GG_PendingCommandList GG_PendingCommandListHead;
+static void *GG_POP_PENDING_CMD(struct GG_PendingCommand **cmd);
 #else
-#define GG_POP_PENDING_BR InterlockedPopEntrySList
-typedef SLIST_ENTRY GG_PendingBreakpointList;
-typedef SLIST_HEADER GG_PendingBreakpointListHead;
+#define GG_POP_PENDING_CMD InterlockedPopEntrySList
+typedef SLIST_ENTRY GG_PendingCommandList;
+typedef SLIST_HEADER GG_PendingCommandListHead;
 #endif
 
-struct GG_PendingBreakpoint {
-    GG_PendingBreakpointList entry;
-    unsigned address;
-    BOOL create;
+/*****************************************************************************/
+
+struct GG_PendingCommand {
+    GG_PendingCommandList entry;
+    UCHAR type;
+    union {
+        struct {
+            unsigned short address;
+        } breakpoint, br;
+        struct {
+            unsigned short value;
+            const char *reg;
+        } reg;
+    } data;
 };
 
+/*****************************************************************************/
+
 #ifdef GG_DBG_USE_MUTEX
-static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br){
-    struct GG_PendingBreakpoint *const next = *br;
+static void *GG_POP_PENDING_CMD(struct GG_PendingCommand **cmd){
+    struct GG_PendingCommand *const next = *cmd;
     if(next != NULL){
-        br[0] = next->entry;
+        cmd[0] = next->entry;
     }
     return next;
 }
@@ -157,9 +179,9 @@ static void *GG_POP_PENDING_BR(struct GG_PendingBreakpoint **br){
 
 struct GG_DebuggerWindow{
 #ifdef GG_DBG_USE_MUTEX
-    HANDLE pending_br_mutex;
+    HANDLE pending_cmd_mutex;
 #endif
-    GG_PendingBreakpointListHead pending_br;
+    GG_PendingCommandListHead pending_cmd;
     HWND win;
     struct GG_DebuggerUI *dbg;
     HANDLE signal_event;
@@ -189,7 +211,7 @@ static UINT gg_custom_message = 0;
 /*****************************************************************************/
 
 #ifndef CW_USEDEFAULT
-#define CW_USEDEFAULT 100
+#define CW_USEDEFAULT 400
 #endif
 
 /*****************************************************************************/
@@ -250,16 +272,58 @@ const static wchar_t gg_hex_to_wchar[0xF+1] = {
 
 /*****************************************************************************/
 
+static void gg_debugger_command(HWND hwnd, WPARAM wparam, LPARAM lparam){
+    struct GG_DebuggerWindow *const win =
+        (void*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    assert(win != NULL);
+    assert(win->win == hwnd);
+    switch((int)wparam){
+        case GG_SAVE_DISASM:
+            break; /* TODO! */
+        case GG_SET_BREAKPOINT:
+            break; /* TODO! */
+        case GG_CLEAR_BREAKPOINT:
+            break; /* TODO! */
+        case GG_CLEAR_ALL_BREAKPOINTS:
+        {
+            struct GG_PendingCommand *const cmd =
+                malloc(sizeof(struct GG_PendingCommand));
+            cmd->type = (int)wparam;
+#ifdef GG_DBG_USE_MUTEX
+            WaitForSingleObject(win->pending_cmd_mutex, INFINITE);
+            cmd->entry = win->pending_cmd;
+            win->pending_cmd = cmd;
+            ReleaseMutex(win->pending_cmd_mutex);
+#else
+            InterlockedPushEntrySList(&win->pending_cmd, &cmd->entry);
+#endif
+        }
+    }
+}
+
+/*****************************************************************************/
+
 static LRESULT CALLBACK gg_debugger_window_proc(HWND hwnd,
     UINT msg, WPARAM wparam, LPARAM lparam){
-    if(msg == WM_DESTROY || msg == WM_CLOSE || msg == WM_NCDESTROY){
-        PostQuitMessage(0);
-        ExitThread(0);
+    switch(msg){
+        case WM_DESTROY: /* FALLTHROUGH */
+        case WM_CLOSE: /* FALLTHROUGH */
+        case WM_NCDESTROY:
+            PostQuitMessage(0);
+            ExitThread(0);
+        case WM_COMMAND:
+            /* Menu item */
+            gg_debugger_command(hwnd, wparam, lparam);
+            break;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
+/*****************************************************************************/
+
 #define GG_NUM_COLUMNS 4
+
+/*****************************************************************************/
 
 static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
     
@@ -269,6 +333,35 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
     
     wchar_t items_text_buffer[0x400];
     HWND list_view, text_input;
+    HMENU menu_bar;
+    
+    {
+        /* Create the menu bar */
+        menu_bar = CreateMenu();
+        {
+            HMENU file_menu = CreateMenu();
+            AppendMenuW(file_menu, MF_STRING|MF_GRAYED, GG_OPEN_ROM,
+                L"Open rom...");
+            
+            AppendMenuW(file_menu, MF_STRING,           GG_SAVE_DISASM,
+                L"Save disassembly...");
+            
+            AppendMenuW(file_menu, MF_STRING|MF_GRAYED, GG_SAVE_TILES,
+                L"Save tiles...");
+            
+            AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)file_menu,
+                L"File");
+        }
+        {
+            HMENU breakpoint_menu = CreateMenu();
+            AppendMenuW(breakpoint_menu, MF_STRING, GG_CLEAR_ALL_BREAKPOINTS,
+                L"Clear all breakpoints");
+            
+            AppendMenuW(menu_bar, MF_POPUP, (UINT_PTR)breakpoint_menu,
+                L"Breakpoints");
+        }
+    }
+    
     /* TODO:
      * WS_EX_NOACTIVATE to make this always below the emulator?
      */
@@ -279,9 +372,11 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
         600,
         400,
         NULL,
-        NULL,
+        menu_bar,
         instance,
         NULL);
+    
+    SetWindowLongPtrW(win->win, GWLP_USERDATA, (LONG_PTR)win);
     
     win->needed_start = 16;
     win->needed_end = 116;
@@ -295,6 +390,7 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
 	}
     
     /* Create the UI elements */
+    
     {
         /* Create the listview used for the disassembly and graphical
          * breakpoint system.
@@ -307,7 +403,7 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
             10,
             10,
             400,
-            300,
+            290,
             win->win,
             NULL,
             instance,
@@ -351,7 +447,7 @@ static DWORD WINAPI gg_debugger_window_thread_proc(void *param){
         L"",
         WS_VISIBLE | WS_CHILD | ES_LEFT | ES_LOWERCASE,
         10,
-        320,
+        310,
         400,
         20,
         win->win,
@@ -468,6 +564,8 @@ static BOOL gg_wait_for_debugger(const struct GG_DebuggerWindow *win){
 
 void GG_InitDebuggerWindowSystem(void){
     const HANDLE cursor = LoadCursor(NULL, IDC_ARROW);
+    
+    /* Register the debugger window class */
     WNDCLASSW wc = {
         0,
         gg_debugger_window_proc,
@@ -484,6 +582,8 @@ void GG_InitDebuggerWindowSystem(void){
     wc.hCursor = cursor;
     
     RegisterClassW(&wc);
+    
+    /* Register our custom message type */
     gg_custom_message = RegisterWindowMessageW(L"GG_DebuggerMessage");
     if(gg_custom_message == 0){
         /* DANGER WILL ROBINSON! */
@@ -518,10 +618,10 @@ struct GG_DebuggerWindow *GG_CreateDebuggerWindow(struct GG_DebuggerUI *dbg){
     
     ZeroMemory(win, sizeof(struct GG_DebuggerWindow));
 #ifdef GG_DBG_USE_MUTEX
-    win->pending_br_mutex = CreateMutexA(NULL, FALSE, NULL);
-    win->pending_br = NULL;
+    win->pending_cmd_mutex = CreateMutexA(NULL, FALSE, NULL);
+    win->pending_cmd = NULL;
 #else
-    InitializeSListHead(&win->pending_br);
+    InitializeSListHead(&win->pending_cmd);
 #endif
     
     /* Create the signal */
@@ -580,33 +680,42 @@ int GG_PollDebuggerWindow(struct GG_DebuggerWindow *win,
         return 1;
     }
     else{
-        /* Set any pending breakpoints */
+        /* Process any pending commands */
 #ifdef GG_DBG_USE_MUTEX
         /* Wait with just 1. We're OK with just waiting for another frame. */
-        if(WaitForSingleObject(win->pending_br_mutex, 1) != WAIT_OBJECT_0)
+        if(WaitForSingleObject(win->pending_cmd_mutex, 1) != WAIT_OBJECT_0){
+            printf("WaitForSingleObject: %i\n", GetLastError());
             return 0;
+        }
 #endif
-        if((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL){
+        if((e = GG_POP_PENDING_CMD(&win->pending_cmd)) != NULL){
             do{
-                struct GG_PendingBreakpoint *br =
-                    (struct GG_PendingBreakpoint*)e; 
-                if(br->create){
-                    GG_DebuggerSetBreakpoint(dbg, br->address);
-                }
-                else{
-                    GG_DebuggerUnsetBreakpoint(dbg, br->address);
+                struct GG_PendingCommand *cmd =
+                    (struct GG_PendingCommand*)e;
+                if(dbg != NULL){
+                    switch(cmd->type){
+                        case GG_SET_BREAKPOINT:
+                            GG_DebuggerSetBreakpoint(dbg, cmd->data.br.address);
+                            break;
+                        case GG_CLEAR_BREAKPOINT:
+                            GG_DebuggerUnsetBreakpoint(dbg, cmd->data.br.address);
+                            break;
+                        case GG_CLEAR_ALL_BREAKPOINTS:
+                            GG_DebuggerUnsetAllBreakpoints(dbg);
+                            break;
+                    }
                 }
                 free(e);
-            }while((e = GG_POP_PENDING_BR(&win->pending_br)) != NULL);
+            }while((e = GG_POP_PENDING_CMD(&win->pending_cmd)) != NULL);
             
             /* TODO: this might not be important? We could return differently
              * instead to avoid the double-post
              */
-#ifdef GG_DBG_USE_MUTEX
-            ReleaseMutex(win->pending_br_mutex);
-#endif
             SendMessage(win->win, gg_custom_message, 0, 0);
         }
+#ifdef GG_DBG_USE_MUTEX
+        ReleaseMutex(win->pending_cmd_mutex);
+#endif
         return 0;
     }
 }

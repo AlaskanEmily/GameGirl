@@ -67,6 +67,11 @@ GG_DEBUG_CALL(void)
 GG_DebuggerUnsetBreakpoint(struct GG_Debugger *dbg, unsigned address);
 
 /*****************************************************************************/
+
+GG_DEBUG_CALL(void)
+GG_DebuggerUnsetAllBreakpoints(struct GG_Debugger *dbg);
+
+/*****************************************************************************/
 /* Returns zero for no breakpoint, non-zero if there is a breakpoint */
 GG_DEBUG_CALL(int)
 GG_DebuggerIsBreakpoint(struct GG_Debugger *dbg, unsigned address);
