@@ -9,29 +9,26 @@
 #define GG_GPU_GPU_H
 #pragma once
 
-#if (defined _WIN32) && ((defined __GNUC__) || (defined __TINYC__))
-#define GG_GPU_STDCALL(T) __attribute__((stdcall)) T
-#define GG_GPU_CALLBACK(T, NAME) __attribute__((stdcall))T(*NAME)
-#elif (defined _MSC_VER) || (defined __WATCOMC__)
-#define GG_GPU_STDCALL(T) T __stdcall
-#define GG_GPU_CALLBACK(T, NAME) T(__stdcall*NAME)
-#else
-#define GG_GPU_STDCALL(T) T
-#define GG_GPU_CALLBACK(T, NAME) T(*NAME)
-#endif
+#include "../gg_call.h"
 
 #ifdef __cplusplus
-#define GG_GPU_FUNC(T) extern "C" GG_GPU_STDCALL(T)
+#define GG_GPU_FUNC(T) extern "C" GG_STDCALL(T)
 #else
-#define GG_GPU_FUNC GG_GPU_STDCALL
+#define GG_GPU_FUNC GG_STDCALL
 #endif
 
+#define GG_GPU_CALLBACK GG_STDCALL_CALLBACK
+
 #ifdef __cplusplus
-extern "C"
+extern "C" {
 #endif
 
 extern const unsigned gg_gpu_struct_size;
 extern const unsigned _gg_gpu_struct_size;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 struct GG_GPU_s;
 typedef struct GG_GPU_s GG_GPU;

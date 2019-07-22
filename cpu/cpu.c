@@ -9,11 +9,10 @@
 
 #include "mmu.h"
 #include "gpu.h"
-#include "dbg.h"
+#include "dbg_core.h"
 
 #define GG_SUPER_DEBUG
 #ifdef GG_SUPER_DEBUG
-#include "dbg.h"
 #include <stdio.h>
 #endif
 
@@ -717,6 +716,22 @@ GG_CPU_FUNC(void) GG_CPU_Init(GG_CPU *cpu, void *mmu_v){
     }
 }
 
+#define GG_CPU_DBG_CHECK_WAIT(DBG, RENDER_CB, RENDER_ARG) do{ \
+    if((DBG) && GG_DBG_GET_STATE((DBG)) == GG_DBG_PAUSE){ \
+            do{ \
+                (RENDER_CB)((RENDER_ARG)); \
+            }while(GG_DBG_GET_STATE((DBG)) == GG_DBG_PAUSE); \
+        } \
+    } while(0)
+
+#define GG_CPU_DBG_ENTER_WAIT(DBG, RENDER_CB, RENDER_ARG) do{ \
+        if(!(DBG)) break; \
+        GG_DBG_SET_STATE((DBG), GG_DBG_PAUSE); \
+        do{ \
+            (RENDER_CB)((RENDER_ARG)); \
+        }while(GG_DBG_GET_STATE((DBG)) == GG_DBG_PAUSE); \
+    }while(0)
+
 void GG_CPU_Execute(GG_CPU *cpu,
     void *mmu_v,
     void *gpu_v,
@@ -728,11 +743,14 @@ void GG_CPU_Execute(GG_CPU *cpu,
     register unsigned m = cpu->M;
     register unsigned short ip = cpu->IP;
     register GG_MMU *const mmu = mmu_v;
-    struct GG_Debugger *const dbg = dbg_v;
+    GG_DBG *const dbg = dbg_v;
     on_gpu_advance_callback render_cb = (on_gpu_advance_callback)render_cb_v;
     DEBUG_ONLY(int debug_op);
     
     assert((render_cb == NULL) == (dbg == NULL));
+    
+    /* Pause at the beginning of we have a debugger. */
+    GG_CPU_DBG_ENTER_WAIT(dbg, render_cb, render_arg);
     
     /* ip is now on the C stack */
 #undef GG_IP
@@ -745,16 +763,17 @@ void GG_CPU_Execute(GG_CPU *cpu,
 #include "cpu.inc"
         }
         
-        /* Check for interrupts */
+        /* Check for interrupts 
         assert(m > old_m);
+        */
         GG_GPU_ADVANCE(gpu_v, win_v, mmu, m - old_m, render_cb, render_arg);
         
         /* Check for breakpoint */
-        if(dbg && GG_DebuggerIsBreakpoint(dbg, ip)){
-            GG_SetDebuggerState(dbg, GG_DBG_PAUSE);
-            do{
-                render_cb(render_arg);
-            }while(GG_GetDebuggerState(dbg) == GG_DBG_PAUSE);
+        if(dbg && GG_DBG_IsBreakpoint(dbg, ip)){
+            GG_CPU_DBG_ENTER_WAIT(dbg, render_cb, render_arg);
+        }
+        else {
+            GG_CPU_DBG_CHECK_WAIT(dbg, render_cb, render_arg);
         }
     }while(1);
 }

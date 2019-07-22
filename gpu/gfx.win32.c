@@ -197,15 +197,16 @@ void GG_Flipscreen(GG_Window *win, void *scr_v){
     }
     /* Force a redraw */
     RedrawWindow(win->window, NULL, NULL, RDW_UPDATENOW|RDW_ALLCHILDREN);
-    
-    /* Handle events. */
-    {
-        MSG msg;
-        while(PeekMessage(&msg, win->window, 0, 0, PM_REMOVE)){
-            DispatchMessage(&msg);
-        }
+}
+
+void GG_HandleEvents(GG_Window *win, void *scr){
+    MSG msg;
+    (void)scr;
+    while(PeekMessage(&msg, win->window, 0, 0, PM_REMOVE)){
+        DispatchMessage(&msg);
     }
 }
+
 
 void GG_BrowseForFile(GG_Window *win,
     const char *ext,

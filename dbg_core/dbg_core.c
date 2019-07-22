@@ -5,75 +5,82 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dbg.h"
+#include "dbg_core.h"
+
 #include "mmu.h"
 #include "cpu.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
-/* The glue that makes the debugger work with the rest of the emulator */
-
 /*****************************************************************************/
 
-struct GG_Debugger{
+struct GG_DBG_s {
+    unsigned char state;
+    
     GG_CPU *cpu;
     GG_MMU *mmu;
-    int state;
     
     /* TODO: This should really be sorted. */
     unsigned num_breaks, cap_breaks;
     unsigned *breaks;
 };
 
+const unsigned gg_dbg_core_struct_size = sizeof(GG_DBG);
+const unsigned _gg_dbg_core_struct_size = sizeof(GG_DBG);
+
 /*****************************************************************************/
 
-struct GG_Debugger *GG_CreateDebugger(void *cpu, void *mmu){
-    struct GG_Debugger *const dbg = malloc(sizeof(struct GG_Debugger));
-    
+#define GG_DBG_REGISTER_NAME(X) "" #X "",
+
+/*****************************************************************************/
+
+static const char *const register_names[] = {
+    GG_ALL_REGISTERS(GG_DBG_REGISTER_NAME)
+    NULL
+};
+
+/*****************************************************************************/
+
+const char *const *const gg_dbg_register_names = register_names;
+const char *const *const _gg_dbg_register_names = register_names;
+
+/*****************************************************************************/
+
+void GG_DBG_Init(GG_DBG *dbg, void *cpu, void *mmu){
     assert(dbg);
     assert(mmu);
     assert(cpu);
     
-    if(dbg){
-        dbg->cpu = cpu;
-        dbg->mmu = mmu;
-        dbg->breaks = NULL;
-        dbg->num_breaks = 0;
-        dbg->cap_breaks = 0;
-    }
-    
-    return dbg;
+    dbg->cpu = cpu;
+    dbg->mmu = mmu;
+    dbg->breaks = NULL;
+    dbg->num_breaks = 0;
+    dbg->cap_breaks = 0;
 }
 
 /*****************************************************************************/
 
-void GG_DestroyDebugger(struct GG_Debugger *dbg){
-    assert(dbg);
-    free(dbg);
+void GG_DBG_Fini(GG_DBG *dbg){
+    free(dbg->breaks);
 }
 
 /*****************************************************************************/
 
-int GG_GetDebuggerState(const struct GG_Debugger *dbg){
-    assert(dbg);
-    assert(dbg->state == GG_DBG_PAUSE || dbg->state == GG_DBG_CONTINUE);
-    return dbg->state;
-}
-
-/*****************************************************************************/
-
-void GG_SetDebuggerState(struct GG_Debugger *dbg, int state){
-    assert(dbg);
-    assert(state == GG_DBG_PAUSE || state == GG_DBG_CONTINUE);
-    assert(dbg->state == GG_DBG_PAUSE || dbg->state == GG_DBG_CONTINUE);
-    
+void GG_DBG_SetState(GG_DBG *dbg, int state) {
     dbg->state = state;
 }
 
 /*****************************************************************************/
 
-void GG_DebuggerSetBreakpoint(struct GG_Debugger *dbg, unsigned address){
+int GG_DBG_GetState(const GG_DBG *dbg) {
+    return dbg->state;
+}
+
+
+/*****************************************************************************/
+
+void GG_DBG_SetBreakpoint(GG_DBG *dbg, unsigned address){
     const unsigned num_breaks = dbg->num_breaks;
 
     unsigned new_cap = 0;
@@ -104,11 +111,11 @@ void GG_DebuggerSetBreakpoint(struct GG_Debugger *dbg, unsigned address){
 
 /*****************************************************************************/
 
-void GG_DebuggerUnsetBreakpoint(struct GG_Debugger *dbg, unsigned address){
+void GG_DBG_UnsetBreakpoint(GG_DBG *dbg, unsigned address){
     unsigned i;
     const unsigned num_breaks = dbg->num_breaks;
     
-    assert(GG_DebuggerIsBreakpoint(dbg, address));
+    assert(GG_DBG_IsBreakpoint(dbg, address));
     
     for(i = 0; i < num_breaks; i++){
         if(dbg->breaks[i] == address){
@@ -122,13 +129,13 @@ void GG_DebuggerUnsetBreakpoint(struct GG_Debugger *dbg, unsigned address){
 
 /*****************************************************************************/
 
-void GG_DebuggerUnsetAllBreakpoints(struct GG_Debugger *dbg){
+void GG_DBG_UnsetAllBreakpoints(GG_DBG *dbg){
     dbg->num_breaks = 0;
 }
 
 /*****************************************************************************/
 /* Returns zero for no breakpoint, non-zero if there is a breakpoint */
-int GG_DebuggerIsBreakpoint(struct GG_Debugger *dbg, unsigned address){
+int GG_DBG_IsBreakpoint(GG_DBG *dbg, unsigned address){
     unsigned i;
     const unsigned num_breaks = dbg->num_breaks;
     for(i = 0; i < num_breaks; i++){
@@ -141,35 +148,14 @@ int GG_DebuggerIsBreakpoint(struct GG_Debugger *dbg, unsigned address){
 
 /*****************************************************************************/
 
-unsigned GG_DebuggerAddressToLine(const struct GG_Debugger *dbg, unsigned a){
+unsigned GG_DBG_AddressToLine(const GG_DBG *dbg, unsigned a){
     /* TODO! */
-    return 0;
+    return a;
 }
 
 /*****************************************************************************/
 
-unsigned GG_DebuggerLineToAddress(const struct GG_Debugger *dbg, unsigned l){
+unsigned GG_DBG_LineToAddress(const GG_DBG *dbg, unsigned l){
     /* TODO! */
-    return 0;
+    return l;
 }
-
-/*****************************************************************************/
-
-GG_DEBUG_CALL(void)
-GG_DebuggerSetAddress8(struct GG_Debugger *dbg, unsigned addr, unsigned val);
-
-/*****************************************************************************/
-
-GG_DEBUG_CALL(unsigned)
-GG_DebuggerGetAddress8(const struct GG_Debugger *dbg, unsigned addr);
-
-/*****************************************************************************/
-
-GG_DEBUG_CALL(void)
-GG_DebuggerSetRegister(struct GG_Debugger *dbg, const char *r, unsigned val);
-
-/*****************************************************************************/
-
-GG_DEBUG_CALL(unsigned)
-GG_DebuggerGetRegister(const struct GG_Debugger *dbg, const char *r);
-

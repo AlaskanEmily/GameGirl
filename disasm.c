@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dbg/dbg.h"
+#include "dbg_core/dbg_core.h"
 #include "mmu/mmu.h"
 
 #include <stdio.h>
@@ -81,7 +81,7 @@ int main(int argc, char **argv){
         
         do{
             unsigned start_address = address;
-            const char *line = GG_DebugDisassemble(mmu, &address, buffer);
+            const char *line = GG_DBG_Disassemble(mmu, &address, buffer);
             int p = 0;
             
             if(print_addresses)

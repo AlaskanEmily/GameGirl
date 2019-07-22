@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dbg.h"
+#include "dbg_core.h"
 
 #include "mmu.h"
 
@@ -140,7 +140,7 @@
     in_out_address[0]++; \
     return "BITOP (NOT IMPLEMENTED!)";
 
-const char *GG_DebugDisassemble(void *mmu,
+const char *GG_DBG_Disassemble(void *mmu,
     unsigned *in_out_address,
     char out[80]){
     

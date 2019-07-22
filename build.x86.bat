@@ -28,7 +28,7 @@ if "%1"=="watcom" (
 
 set "GGOLDPATH=%PATH%"
 set "PATH=%~dp0\tools\tcc;%~dp0\tools\yasm;%PATH%"
-set GGOPTIONS=COMPILER=tcc COMPILERFLAGS="-rdynamic -shared -c -Immu -Icpu -Igpu -Idbg -O2 -DNDEBUG" COMPILEOUT="-o " LINKER=tcc LINKOUT="-o "
+set GGOPTIONS=COMPILER=tcc COMPILERFLAGS="-rdynamic -shared -c -Immu -Icpu -Igpu -Idbg_core -Idbg_ui -O2 -DNDEBUG" COMPILEOUT="-o " LINKER=tcc LINKOUT="-o "
 
 :findmake
 

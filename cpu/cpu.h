@@ -9,15 +9,7 @@
 #define GG_CPU_CPU_H
 #pragma once
 
-#ifndef GG_CCALL
-#if (defined __GNUC__) || (defined __TINYC__)
-#define GG_CCALL(T) __attribute__((cdecl)) T
-#elif (defined _MSC_VER) || (defined __WATCOMC__)
-#define GG_CCALL(T) T __cdecl
-#else
-#error Add cdecl for your compiler here.
-#endif
-#endif
+#include "../gg_call.h"
 
 #ifdef __cplusplus
 #define GG_CPU_FUNC(T) extern "C" GG_CCALL(T)

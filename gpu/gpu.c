@@ -58,6 +58,7 @@ void GG_GPU_SetModeClock(GG_GPU *gpu, unsigned modeclock){
 
 static void gg_gpu_flipscreen(GG_GPU *gpu, GG_Window *win){
     GG_Flipscreen(win, gpu->screen);
+    GG_HandleEvents(win, gpu->screen);
 }
 
 static void gg_gpu_render_line(GG_GPU *gpu, GG_MMU *mmu){

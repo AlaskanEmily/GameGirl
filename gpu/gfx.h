@@ -10,16 +10,7 @@
 #pragma once
 
 /* Actually draws to an OS window */
-
-#ifndef GG_CCALL
-#if (defined _WIN32) && ((defined __GNUC__) || (defined __TINYC__))
-#define GG_CCALL(T) __attribute__((cdecl)) T
-#elif (defined _MSC_VER) || (defined __WATCOMC__)
-#define GG_CCALL(T) T __cdecl
-#else
-#define GG_CCALL(T) T
-#endif
-#endif
+#include "../gg_call.h"
 
 #ifdef __cplusplus
 #define GG_GFX_FUNC(T) extern "C" GG_CCALL(T)
@@ -37,6 +28,7 @@ GG_GFX_FUNC(GG_WindowPtr) GG_CreateWindow(void);
 GG_GFX_FUNC(void) GG_DestroyWindow(GG_Window *win);
 
 GG_GFX_FUNC(void) GG_Flipscreen(GG_Window *win, void *scr);
+GG_GFX_FUNC(void) GG_HandleEvents(GG_Window *win, void *scr);
 
 GG_GFX_FUNC(void) GG_BrowseForFile(GG_Window *win,
     const char *ext,

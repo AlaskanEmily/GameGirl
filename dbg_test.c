@@ -5,7 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dbg.h"
+#include "dbg_core.h"
+#include "dbg_ui.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -13,7 +14,7 @@
 int main(int argc, char **argv){
 
     GG_InitDebuggerWindowSystem();
-    
+#if 0
     {
         struct GG_DebuggerUI *const dbg_ui = GG_CreateDebuggerUI();
         struct GG_DebuggerWindow *const dbg_win = GG_CreateDebuggerWindow(dbg_ui);
@@ -37,4 +38,5 @@ int main(int argc, char **argv){
         
         return 0;
     }
+#endif
 }

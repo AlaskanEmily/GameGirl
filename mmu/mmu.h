@@ -1,13 +1,15 @@
+/* Copyright (c) 2019 Emily McDonough
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef GG_MMU_H
 #define GG_MMU_H
+#pragma once
 
-#if (defined __GNUC__) || (defined __TINYC__)
-#define GG_STDCALL(T) __attribute__((stdcall)) T
-#elif (defined _MSC_VER) || (defined __WATCOMC__)
-#define GG_STDCALL(T) T __stdcall
-#else
-#error Add stdcall for your compiler here.
-#endif
+#include "../gg_call.h"
 
 #ifdef __cplusplus
 #define GG_MMU_FUNC(T) extern "C" GG_STDCALL(T)
